@@ -1,23 +1,54 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "enterprise-webapp-jenkins:v1"
+        CONTAINER_NAME = "enterprise-webapp"
+    }
+
     stages {
-        stage('Checkout') {
+
+        stage('Show Files') {
             steps {
-                echo 'Code received from GitHub'
+                sh 'pwd'
+                sh 'ls -la'
             }
         }
 
-        stage('Validate Files') {
+        stage('Build Docker Image') {
             steps {
-                sh 'ls -la DevOps/Docker_Projects/simple-webapp'
+                dir('DevOps/Docker_Projects/simple-webapp') {
+                    sh 'docker build -t $IMAGE_NAME .'
+                }
             }
         }
 
-        stage('CI Completed') {
+        stage('Stop Old Container') {
             steps {
-                echo 'GitHub webhook to Jenkins automation is working'
+                sh 'docker rm -f $CONTAINER_NAME || true'
             }
+        }
+
+        stage('Run New Container') {
+            steps {
+                sh 'docker run -d --name $CONTAINER_NAME -p 8090:80 $IMAGE_NAME'
+            }
+        }
+
+        stage('Verify Running Container') {
+            steps {
+                sh 'docker ps'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Docker deployment completed successfully'
+        }
+
+        failure {
+            echo 'Docker deployment failed'
         }
     }
 }
