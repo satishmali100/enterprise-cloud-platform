@@ -1,0 +1,30 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Clone') {
+            steps {
+                echo 'Code pulled from GitHub'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                bat 'docker build -t enterprise-webapp-jenkins:v1 .'
+            }
+        }
+
+        stage('Remove Old Container') {
+            steps {
+                bat 'docker rm -f enterprise-webapp || exit 0'
+            }
+        }
+
+        stage('Run New Container') {
+            steps {
+                bat 'docker run -d --name enterprise-webapp -p 8090:80 enterprise-webapp-jenkins:v1'
+            }
+        }
+    }
+}
