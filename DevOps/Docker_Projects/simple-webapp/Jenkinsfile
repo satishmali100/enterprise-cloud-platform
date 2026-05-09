@@ -2,28 +2,21 @@ pipeline {
     agent any
 
     stages {
-
-        stage('Clone') {
+        stage('Checkout') {
             steps {
-                echo 'Code pulled from GitHub'
+                echo 'Code received from GitHub'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Validate Files') {
             steps {
-                sh 'docker build -t enterprise-webapp-jenkins:v1 .'
+                sh 'ls -la DevOps/Docker_Projects/simple-webapp'
             }
         }
 
-        stage('Remove Old Container') {
+        stage('CI Completed') {
             steps {
-                sh 'docker rm -f enterprise-webapp || true'
-            }
-        }
-
-        stage('Run New Container') {
-            steps {
-                sh 'docker run -d --name enterprise-webapp -p 8090:80 enterprise-webapp-jenkins:v1'
+                echo 'GitHub webhook to Jenkins automation is working'
             }
         }
     }
