@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('Build Docker Image') {
             steps {
-                sh 'docker build -t enterprise-webapp-jenkins:v1 .'
+                sh 'docker build -t enterprise-webapp-jenkins:v1 DevOps/Docker_Projects/simple-webapp'
             }
         }
 
@@ -16,7 +16,7 @@ pipeline {
 
         stage('Deploy To Kubernetes') {
             steps {
-                sh 'kubectl --kubeconfig=/var/jenkins_home/.kube/config apply -f k8s/'
+                sh 'kubectl --kubeconfig=/var/jenkins_home/.kube/config apply -f DevOps/Docker_Projects/simple-webapp/k8s/'
                 sh 'kubectl --kubeconfig=/var/jenkins_home/.kube/config rollout restart deployment enterprise-webapp-deployment'
                 sh 'kubectl --kubeconfig=/var/jenkins_home/.kube/config rollout status deployment enterprise-webapp-deployment'
             }
