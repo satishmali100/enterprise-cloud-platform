@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: enterprise-webapp
-        image: enterprise-webapp:latest
+        image: enterprise-webapp-jenkins:v1
         imagePullPolicy: Never
         ports:
         - containerPort: 80

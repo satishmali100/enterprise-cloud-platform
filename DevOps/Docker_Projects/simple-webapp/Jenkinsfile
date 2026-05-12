@@ -3,40 +3,32 @@ pipeline {
 
     environment {
         APP_DIR = 'DevOps/Docker_Projects/simple-webapp'
-        IMAGE_NAME = 'enterprise-webapp-jenkins'
-        DEPLOYMENT_NAME = 'enterprise-webapp-deployment'
+        IMAGE_NAME = 'enterprise-webapp-jenkins:v1'
         KUBECONFIG_PATH = '/var/jenkins_home/.kube/config'
+        DEPLOYMENT_NAME = 'enterprise-webapp-deployment'
+        KIND_CLUSTER = 'cicd-lab'
     }
 
     stages {
         stage('Build Docker Image') {
             steps {
-                sh 'docker build --no-cache -t ${IMAGE_NAME}:${BUILD_NUMBER} ${APP_DIR}'
+                sh 'docker build --no-cache -t ${IMAGE_NAME} ${APP_DIR}'
             }
         }
 
         stage('Load Image Into Kind') {
             steps {
-                sh 'kind load docker-image ${IMAGE_NAME}:${BUILD_NUMBER} --name cicd-lab'
+                sh 'kind load docker-image ${IMAGE_NAME} --name ${KIND_CLUSTER}'
             }
         }
 
-        stage('Apply Kubernetes YAML') {
+        stage('Deploy To Kubernetes') {
             steps {
                 sh 'kubectl --kubeconfig=${KUBECONFIG_PATH} apply -f ${APP_DIR}/k8s/'
-            }
-        }
-
-        stage('Update Kubernetes Image') {
-            steps {
-                sh 'kubectl --kubeconfig=${KUBECONFIG_PATH} set image deployment/${DEPLOYMENT_NAME} *=${IMAGE_NAME}:${BUILD_NUMBER}'
-            }
-        }
-
-        stage('Check Rollout') {
-            steps {
-                sh 'kubectl --kubeconfig=${KUBECONFIG_PATH} rollout status deployment/${DEPLOYMENT_NAME}'
+                sh 'kubectl --kubeconfig=${KUBECONFIG_PATH} rollout restart deployment ${DEPLOYMENT_NAME}'
+                sh 'kubectl --kubeconfig=${KUBECONFIG_PATH} rollout status deployment ${DEPLOYMENT_NAME}'
             }
         }
     }
 }
+
