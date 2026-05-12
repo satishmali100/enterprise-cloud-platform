@@ -19,8 +19,10 @@ pipeline {
                 dir('DevOps/Docker_Projects/simple-webapp') {
                     sh '''
                     echo "Manual rollback started..."
+
                     kubectl rollout undo deployment enterprise-webapp-deployment
                     kubectl rollout status deployment enterprise-webapp-deployment
+
                     echo "Rollback completed."
                     '''
                 }
@@ -36,15 +38,22 @@ pipeline {
                     sh '''
                     echo "Auto deployment started..."
 
-                    docker build -t enterprise-webapp-jenkins:v1 .
-                    kind load docker-image enterprise-webapp-jenkins:v1 --name cicd-lab
+                    IMAGE_TAG=build-${BUILD_NUMBER}
+                    IMAGE_NAME=enterprise-webapp-jenkins:${IMAGE_TAG}
 
-                    kubectl apply -f k8s/deployment.yaml
+                    echo "Building image: $IMAGE_NAME"
+
+                    docker build -t $IMAGE_NAME .
+                    kind load docker-image $IMAGE_NAME --name cicd-lab
+
                     kubectl apply -f k8s/service.yaml
-                    kubectl rollout restart deployment enterprise-webapp-deployment
+                    kubectl apply -f k8s/deployment.yaml
+
+                    kubectl set image deployment/enterprise-webapp-deployment enterprise-webapp=$IMAGE_NAME
+
                     kubectl rollout status deployment enterprise-webapp-deployment
 
-                    echo "Deployment completed."
+                    echo "Deployment completed with image: $IMAGE_NAME"
                     '''
                 }
             }
