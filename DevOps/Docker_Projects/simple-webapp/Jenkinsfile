@@ -44,6 +44,16 @@ pipeline {
                     echo "Building image: $IMAGE_NAME"
 
                     docker build -t $IMAGE_NAME .
+
+                    echo "Creating build artifacts..."
+
+                    mkdir -p build-artifacts
+
+                    cp index.html build-artifacts/
+                    cp Dockerfile build-artifacts/
+                    cp k8s/deployment.yaml build-artifacts/
+                    cp k8s/service.yaml build-artifacts/
+
                     kind load docker-image $IMAGE_NAME --name cicd-lab
 
                     kubectl apply -f k8s/service.yaml
@@ -55,8 +65,24 @@ pipeline {
 
                     echo "Deployment completed with image: $IMAGE_NAME"
                     '''
+
+                    archiveArtifacts artifacts: 'DevOps/Docker_Projects/simple-webapp/build-artifacts/**', fingerprint: true
                 }
             }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully."
+        }
+
+        failure {
+            echo "Pipeline failed. Check console logs."
+        }
+
+        always {
+            echo "Pipeline finished."
         }
     }
 }
