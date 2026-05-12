@@ -66,7 +66,7 @@ pipeline {
                     echo "Deployment completed with image: $IMAGE_NAME"
                     '''
 
-                    archiveArtifacts artifacts: 'DevOps/Docker_Projects/simple-webapp/build-artifacts/**', fingerprint: true
+                    archiveArtifacts artifacts: 'build-artifacts/**', fingerprint: true
                 }
             }
         }
