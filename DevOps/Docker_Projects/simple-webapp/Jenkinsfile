@@ -1,34 +1,49 @@
 pipeline {
     agent any
 
-    environment {
-        APP_DIR = 'DevOps/Docker_Projects/simple-webapp'
-        IMAGE_NAME = 'enterprise-webapp-jenkins:v1'
-        KUBECONFIG_PATH = '/var/jenkins_home/.kube/config'
-        DEPLOYMENT_NAME = 'enterprise-webapp-deployment'
-        KIND_CLUSTER = 'cicd-lab'
+    parameters {
+        booleanParam(
+            name: 'ROLLBACK',
+            defaultValue: false,
+            description: 'Tick only if you want to rollback previous Kubernetes deployment'
+        )
     }
 
     stages {
-        stage('Build Docker Image') {
+
+        stage('Rollback') {
+            when {
+                expression { params.ROLLBACK == true }
+            }
             steps {
-                sh 'docker build --no-cache -t ${IMAGE_NAME} ${APP_DIR}'
+                sh '''
+                echo "Manual rollback started..."
+                kubectl rollout undo deployment enterprise-webapp-deployment
+                kubectl rollout status deployment enterprise-webapp-deployment
+                echo "Rollback completed."
+                '''
             }
         }
 
-        stage('Load Image Into Kind') {
-            steps {
-                sh 'kind load docker-image ${IMAGE_NAME} --name ${KIND_CLUSTER}'
+        stage('Deploy') {
+            when {
+                expression { params.ROLLBACK == false }
             }
-        }
-
-        stage('Deploy To Kubernetes') {
             steps {
-                sh 'kubectl --kubeconfig=${KUBECONFIG_PATH} apply -f ${APP_DIR}/k8s/'
-                sh 'kubectl --kubeconfig=${KUBECONFIG_PATH} rollout restart deployment ${DEPLOYMENT_NAME}'
-                sh 'kubectl --kubeconfig=${KUBECONFIG_PATH} rollout status deployment ${DEPLOYMENT_NAME}'
+                sh '''
+                echo "Auto deployment started..."
+
+                docker build -t enterprise-webapp-jenkins:v1 .
+                kind load docker-image enterprise-webapp-jenkins:v1 --name cicd-lab
+
+                kubectl apply -f k8s/deployment.yaml
+                kubectl apply -f k8s/service.yaml
+                kubectl rollout restart deployment enterprise-webapp-deployment
+                kubectl rollout status deployment enterprise-webapp-deployment
+
+                echo "Deployment completed."
+                '''
             }
         }
     }
 }
-
