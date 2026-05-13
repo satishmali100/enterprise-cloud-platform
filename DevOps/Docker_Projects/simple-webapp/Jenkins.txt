@@ -1,0 +1,4 @@
+choice(
+  name: 'PIPELINE_TYPE',
+  choices: ['app','platform','compliance','monitoring']
+)
