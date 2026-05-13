@@ -76,7 +76,9 @@ pipeline {
                 dir("${APP_DIR}") {
                     sh '''
                     IMAGE_NAME=${IMAGE_REPO}:${IMAGE_TAG}
+
                     echo "Building Docker image: $IMAGE_NAME"
+
                     docker build -t $IMAGE_NAME .
                     '''
                 }
@@ -89,8 +91,14 @@ pipeline {
                 dir("${APP_DIR}") {
                     sh '''
                     IMAGE_NAME=${IMAGE_REPO}:${IMAGE_TAG}
+
                     echo "Running Trivy image scan..."
-                    trivy image --timeout 10m --severity HIGH,CRITICAL --exit-code 0 $IMAGE_NAME
+
+                    trivy image \
+                    --timeout 10m \
+                    --severity HIGH,CRITICAL \
+                    --exit-code 0 \
+                    $IMAGE_NAME
                     '''
                 }
             }
@@ -102,6 +110,7 @@ pipeline {
                 dir("${APP_DIR}") {
                     sh '''
                     echo "Creating build artifacts..."
+
                     rm -rf build-artifacts
                     mkdir -p build-artifacts
 
@@ -110,8 +119,44 @@ pipeline {
                     cp k8s/deployment.yaml build-artifacts/
                     cp k8s/service.yaml build-artifacts/
                     '''
+
                     archiveArtifacts artifacts: 'build-artifacts/**', fingerprint: true
                 }
+            }
+        }
+
+        stage('Platform Stack - Install/Verify') {
+            when { expression { params.ROLLBACK == false } }
+            steps {
+                sh '''
+                echo "Installing/verifying Kubernetes platform stack..."
+
+                kubectl create namespace kyverno --dry-run=client -o yaml | kubectl apply -f -
+                helm upgrade --install kyverno kyverno/kyverno \
+                -n kyverno \
+                --wait \
+                --timeout 10m
+
+                kubectl create namespace gatekeeper-system --dry-run=client -o yaml | kubectl apply -f -
+                helm upgrade --install gatekeeper gatekeeper/gatekeeper \
+                -n gatekeeper-system \
+                --wait \
+                --timeout 10m
+
+                kubectl create namespace falco --dry-run=client -o yaml | kubectl apply -f -
+                helm upgrade --install falco falcosecurity/falco \
+                -n falco \
+                --wait \
+                --timeout 10m
+
+                kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+                helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+                -n monitoring \
+                --wait \
+                --timeout 15m
+
+                echo "Platform stack installation completed."
+                '''
             }
         }
 
@@ -120,7 +165,9 @@ pipeline {
             steps {
                 sh '''
                 IMAGE_NAME=${IMAGE_REPO}:${IMAGE_TAG}
+
                 echo "Loading image into kind: $IMAGE_NAME"
+
                 kind load docker-image $IMAGE_NAME --name ${KIND_CLUSTER}
                 '''
             }
@@ -134,10 +181,12 @@ pipeline {
                     IMAGE_NAME=${IMAGE_REPO}:${IMAGE_TAG}
 
                     echo "Applying Kubernetes manifests..."
+
                     kubectl apply -f k8s/service.yaml
                     kubectl apply -f k8s/deployment.yaml
 
                     echo "Updating deployment image..."
+
                     kubectl set image deployment/${K8S_DEPLOYMENT} ${APP_NAME}=$IMAGE_NAME
                     '''
                 }
@@ -149,8 +198,11 @@ pipeline {
             steps {
                 sh '''
                 echo "Checking Kubernetes rollout status..."
+
                 kubectl rollout status deployment/${K8S_DEPLOYMENT}
+
                 kubectl get pods
+
                 kubectl describe deployment ${K8S_DEPLOYMENT} | grep Image
                 '''
             }
@@ -161,8 +213,11 @@ pipeline {
             steps {
                 sh '''
                 echo "Checking Kyverno governance..."
+
                 kubectl get pods -n kyverno
+
                 kubectl get clusterpolicy || true
+
                 kubectl get policyreport -A || true
                 '''
             }
@@ -173,8 +228,11 @@ pipeline {
             steps {
                 sh '''
                 echo "Checking Gatekeeper governance..."
+
                 kubectl get pods -n gatekeeper-system
+
                 kubectl get constrainttemplates || true
+
                 kubectl get constraints || true
                 '''
             }
@@ -185,8 +243,12 @@ pipeline {
             steps {
                 sh '''
                 echo "Checking Falco runtime security..."
+
                 kubectl get pods -n falco
-                kubectl logs -n falco -l app.kubernetes.io/name=falco --tail=50 || true
+
+                kubectl logs -n falco \
+                -l app.kubernetes.io/name=falco \
+                --tail=50 || true
                 '''
             }
         }
@@ -198,13 +260,16 @@ pipeline {
                 echo "Checking Kubernetes resource usage for FinOps..."
 
                 kubectl get nodes
+
                 kubectl get pods -A
 
-                echo "CPU/Memory usage check:"
+                echo "CPU/Memory usage check..."
+
                 kubectl top nodes || true
+
                 kubectl top pods -A || true
 
-                echo "Note: kubectl top requires metrics-server. If unavailable, install metrics-server/OpenCost later."
+                echo "FinOps visibility completed."
                 '''
             }
         }
