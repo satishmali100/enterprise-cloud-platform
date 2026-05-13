@@ -1,4 +1,54 @@
-choice(
-  name: 'PIPELINE_TYPE',
-  choices: ['app','platform','compliance','monitoring']
-)
+pipeline {
+    agent any
+
+    parameters {
+        choice(
+            name: 'PIPELINE_TYPE',
+            choices: ['app', 'platform', 'compliance', 'monitoring'],
+            description: 'Select pipeline type'
+        )
+    }
+
+    stages {
+
+        stage('APP Pipeline') {
+            when {
+                expression { params.PIPELINE_TYPE == 'app' }
+            }
+
+            steps {
+                echo "Running APP pipeline"
+            }
+        }
+
+        stage('Platform Pipeline') {
+            when {
+                expression { params.PIPELINE_TYPE == 'platform' }
+            }
+
+            steps {
+                echo "Running Platform pipeline"
+            }
+        }
+
+        stage('Compliance Pipeline') {
+            when {
+                expression { params.PIPELINE_TYPE == 'compliance' }
+            }
+
+            steps {
+                echo "Running Compliance pipeline"
+            }
+        }
+
+        stage('Monitoring Pipeline') {
+            when {
+                expression { params.PIPELINE_TYPE == 'monitoring' }
+            }
+
+            steps {
+                echo "Running Monitoring pipeline"
+            }
+        }
+    }
+}
