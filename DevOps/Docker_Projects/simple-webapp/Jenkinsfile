@@ -155,6 +155,59 @@ pipeline {
                 '''
             }
         }
+
+        stage('Governance Check - Kyverno') {
+            when { expression { params.ROLLBACK == false } }
+            steps {
+                sh '''
+                echo "Checking Kyverno governance..."
+                kubectl get pods -n kyverno
+                kubectl get clusterpolicy || true
+                kubectl get policyreport -A || true
+                '''
+            }
+        }
+
+        stage('Governance Check - Gatekeeper') {
+            when { expression { params.ROLLBACK == false } }
+            steps {
+                sh '''
+                echo "Checking Gatekeeper governance..."
+                kubectl get pods -n gatekeeper-system
+                kubectl get constrainttemplates || true
+                kubectl get constraints || true
+                '''
+            }
+        }
+
+        stage('Runtime Security Check - Falco') {
+            when { expression { params.ROLLBACK == false } }
+            steps {
+                sh '''
+                echo "Checking Falco runtime security..."
+                kubectl get pods -n falco
+                kubectl logs -n falco -l app.kubernetes.io/name=falco --tail=50 || true
+                '''
+            }
+        }
+
+        stage('FinOps Check - Kubernetes Resources') {
+            when { expression { params.ROLLBACK == false } }
+            steps {
+                sh '''
+                echo "Checking Kubernetes resource usage for FinOps..."
+
+                kubectl get nodes
+                kubectl get pods -A
+
+                echo "CPU/Memory usage check:"
+                kubectl top nodes || true
+                kubectl top pods -A || true
+
+                echo "Note: kubectl top requires metrics-server. If unavailable, install metrics-server/OpenCost later."
+                '''
+            }
+        }
     }
 
     post {
