@@ -35,6 +35,7 @@ pipeline {
             }
             steps {
                 dir('DevOps/Docker_Projects/simple-webapp') {
+
                     sh '''
                     echo "Auto deployment started..."
 
@@ -44,6 +45,10 @@ pipeline {
                     echo "Building image: $IMAGE_NAME"
 
                     docker build -t $IMAGE_NAME .
+
+                    echo "Scanning Docker image with Trivy..."
+
+                    trivy image --severity HIGH,CRITICAL --exit-code 1 $IMAGE_NAME
 
                     echo "Creating build artifacts..."
 
