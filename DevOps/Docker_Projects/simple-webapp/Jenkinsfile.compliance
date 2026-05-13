@@ -1,0 +1,40 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Kyverno Compliance') {
+            steps {
+                sh '''
+                kubectl get pods -n kyverno
+
+                kubectl get clusterpolicy || true
+
+                kubectl get policyreport -A || true
+                '''
+            }
+        }
+
+        stage('Gatekeeper Compliance') {
+            steps {
+                sh '''
+                kubectl get pods -n gatekeeper-system
+
+                kubectl get constrainttemplates || true
+
+                kubectl get constraints || true
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Compliance Audit Success"
+        }
+
+        failure {
+            echo "Compliance Audit Failed"
+        }
+    }
+}

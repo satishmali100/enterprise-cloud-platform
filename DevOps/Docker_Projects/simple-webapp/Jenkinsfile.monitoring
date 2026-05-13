@@ -1,0 +1,51 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Falco Runtime Security') {
+            steps {
+                sh '''
+                kubectl get pods -n falco
+
+                kubectl logs -n falco \
+                -l app.kubernetes.io/name=falco \
+                --tail=50 || true
+                '''
+            }
+        }
+
+        stage('Prometheus Monitoring') {
+            steps {
+                sh '''
+                kubectl get pods -n monitoring
+                kubectl get svc -n monitoring
+                '''
+            }
+        }
+
+        stage('FinOps Visibility') {
+            steps {
+                sh '''
+                kubectl get nodes
+
+                kubectl get pods -A
+
+                kubectl top nodes || true
+
+                kubectl top pods -A || true
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Monitoring Pipeline Success"
+        }
+
+        failure {
+            echo "Monitoring Pipeline Failed"
+        }
+    }
+}

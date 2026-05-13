@@ -1,0 +1,80 @@
+pipeline {
+    agent any
+
+    stages {
+
+        stage('Install Kyverno') {
+            steps {
+                sh '''
+                helm repo add kyverno https://kyverno.github.io/kyverno/ || true
+                helm repo update
+
+                kubectl create namespace kyverno --dry-run=client -o yaml | kubectl apply -f -
+
+                helm upgrade --install kyverno kyverno/kyverno \
+                -n kyverno \
+                --wait \
+                --timeout 10m
+                '''
+            }
+        }
+
+        stage('Install Gatekeeper') {
+            steps {
+                sh '''
+                helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts || true
+                helm repo update
+
+                kubectl create namespace gatekeeper-system --dry-run=client -o yaml | kubectl apply -f -
+
+                helm upgrade --install gatekeeper gatekeeper/gatekeeper \
+                -n gatekeeper-system \
+                --wait \
+                --timeout 10m
+                '''
+            }
+        }
+
+        stage('Install Falco') {
+            steps {
+                sh '''
+                helm repo add falcosecurity https://falcosecurity.github.io/charts || true
+                helm repo update
+
+                kubectl create namespace falco --dry-run=client -o yaml | kubectl apply -f -
+
+                helm upgrade --install falco falcosecurity/falco \
+                -n falco \
+                --wait \
+                --timeout 10m
+                '''
+            }
+        }
+
+        stage('Install Monitoring Stack') {
+            steps {
+                sh '''
+                helm repo add prometheus-community https://prometheus-community.github.io/helm-charts || true
+                helm repo update
+
+                kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+
+                helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+                -n monitoring \
+                --wait \
+                --timeout 15m
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Platform Stack Installed"
+        }
+
+        failure {
+            echo "Platform Stack Failed"
+        }
+    }
+}
