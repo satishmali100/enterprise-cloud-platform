@@ -39,6 +39,15 @@ pipeline {
                     sh '''
                     echo "Auto deployment started..."
 
+                    echo "Running Secret Scan with Gitleaks..."
+                    gitleaks detect --source . --no-git --redact --exit-code 0
+
+                    echo "Running SAST Scan with Semgrep..."
+                    semgrep scan --config auto . || true
+
+                    echo "Running IaC Scan with Checkov..."
+                    checkov -d . --quiet || true
+
                     IMAGE_TAG=build-${BUILD_NUMBER}
                     IMAGE_NAME=enterprise-webapp-jenkins:${IMAGE_TAG}
 
