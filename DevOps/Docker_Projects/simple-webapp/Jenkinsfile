@@ -76,9 +76,7 @@ pipeline {
                 dir("${APP_DIR}") {
                     sh '''
                     IMAGE_NAME=${IMAGE_REPO}:${IMAGE_TAG}
-
                     echo "Building Docker image: $IMAGE_NAME"
-
                     docker build -t $IMAGE_NAME .
                     '''
                 }
@@ -91,7 +89,6 @@ pipeline {
                 dir("${APP_DIR}") {
                     sh '''
                     IMAGE_NAME=${IMAGE_REPO}:${IMAGE_TAG}
-
                     echo "Running Trivy image scan..."
 
                     trivy image \
@@ -131,6 +128,15 @@ pipeline {
                 sh '''
                 echo "Installing/verifying Kubernetes platform stack..."
 
+                echo "Adding Helm repositories..."
+                helm repo add kyverno https://kyverno.github.io/kyverno/ --force-update
+                helm repo add gatekeeper https://open-policy-agent.github.io/gatekeeper/charts --force-update
+                helm repo add falcosecurity https://falcosecurity.github.io/charts --force-update
+                helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
+
+                helm repo update
+                helm repo list
+
                 kubectl create namespace kyverno --dry-run=client -o yaml | kubectl apply -f -
                 helm upgrade --install kyverno kyverno/kyverno \
                 -n kyverno \
@@ -165,9 +171,7 @@ pipeline {
             steps {
                 sh '''
                 IMAGE_NAME=${IMAGE_REPO}:${IMAGE_TAG}
-
                 echo "Loading image into kind: $IMAGE_NAME"
-
                 kind load docker-image $IMAGE_NAME --name ${KIND_CLUSTER}
                 '''
             }
@@ -181,12 +185,10 @@ pipeline {
                     IMAGE_NAME=${IMAGE_REPO}:${IMAGE_TAG}
 
                     echo "Applying Kubernetes manifests..."
-
                     kubectl apply -f k8s/service.yaml
                     kubectl apply -f k8s/deployment.yaml
 
                     echo "Updating deployment image..."
-
                     kubectl set image deployment/${K8S_DEPLOYMENT} ${APP_NAME}=$IMAGE_NAME
                     '''
                 }
@@ -200,9 +202,7 @@ pipeline {
                 echo "Checking Kubernetes rollout status..."
 
                 kubectl rollout status deployment/${K8S_DEPLOYMENT}
-
                 kubectl get pods
-
                 kubectl describe deployment ${K8S_DEPLOYMENT} | grep Image
                 '''
             }
@@ -215,9 +215,7 @@ pipeline {
                 echo "Checking Kyverno governance..."
 
                 kubectl get pods -n kyverno
-
                 kubectl get clusterpolicy || true
-
                 kubectl get policyreport -A || true
                 '''
             }
@@ -230,9 +228,7 @@ pipeline {
                 echo "Checking Gatekeeper governance..."
 
                 kubectl get pods -n gatekeeper-system
-
                 kubectl get constrainttemplates || true
-
                 kubectl get constraints || true
                 '''
             }
@@ -245,7 +241,6 @@ pipeline {
                 echo "Checking Falco runtime security..."
 
                 kubectl get pods -n falco
-
                 kubectl logs -n falco \
                 -l app.kubernetes.io/name=falco \
                 --tail=50 || true
@@ -260,13 +255,10 @@ pipeline {
                 echo "Checking Kubernetes resource usage for FinOps..."
 
                 kubectl get nodes
-
                 kubectl get pods -A
 
                 echo "CPU/Memory usage check..."
-
                 kubectl top nodes || true
-
                 kubectl top pods -A || true
 
                 echo "FinOps visibility completed."
