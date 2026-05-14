@@ -1,5 +1,3 @@
-// Jenkinsfile.app
-
 pipeline {
     agent any
 
@@ -65,10 +63,10 @@ pipeline {
                     kubectl apply -f k8s/deployment.yaml --validate=false
                     kubectl apply -f k8s/service.yaml --validate=false
 
-                    kubectl set image deployment/enterprise-webapp \
+                    kubectl set image deployment/enterprise-webapp-deployment \
                     enterprise-webapp=$IMAGE_NAME
 
-                    kubectl rollout status deployment/enterprise-webapp
+                    kubectl rollout status deployment/enterprise-webapp-deployment
                     '''
                 }
             }
