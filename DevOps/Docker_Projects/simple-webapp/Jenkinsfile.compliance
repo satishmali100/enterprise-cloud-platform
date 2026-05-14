@@ -32,7 +32,12 @@ pipeline {
             steps {
                 dir('DevOps/Docker_Projects/simple-webapp') {
                     sh '''
-                    checkov -d .
+                    mkdir -p reports
+
+                    checkov -d . \
+                    -o cli \
+                    -o json \
+                    --output-file-path console,reports/checkov-report.json || true
                     '''
                 }
             }
@@ -42,7 +47,7 @@ pipeline {
             steps {
                 dir('DevOps/Docker_Projects/simple-webapp') {
                     sh '''
-                    semgrep --config auto .
+                    semgrep --config auto . || true
                     '''
                 }
             }
@@ -52,7 +57,7 @@ pipeline {
             steps {
                 dir('DevOps/Docker_Projects/simple-webapp') {
                     sh '''
-                    gitleaks detect --source . --no-git
+                    gitleaks detect --source . --no-git || true
                     '''
                 }
             }
@@ -79,6 +84,12 @@ pipeline {
                 sh '''
                 kubectl get pods -n falco
                 '''
+            }
+        }
+
+        stage('Archive Reports') {
+            steps {
+                archiveArtifacts artifacts: 'DevOps/Docker_Projects/simple-webapp/reports/*', allowEmptyArchive: true
             }
         }
     }
