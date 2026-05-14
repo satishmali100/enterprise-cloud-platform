@@ -1,39 +1,50 @@
+// Jenkinsfile.monitoring
+
 pipeline {
     agent any
 
     stages {
 
-        stage('Falco Runtime Security') {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Fix Kubernetes Config') {
             steps {
                 sh '''
-                kubectl get pods -n falco
+                mkdir -p ~/.kube
 
-                kubectl logs -n falco \
-                -l app.kubernetes.io/name=falco \
-                --tail=50 || true
+                sed -i 's#https://127.0.0.1:54269#https://host.docker.internal:54269#g' ~/.kube/config
+
+                grep server ~/.kube/config
+
+                kubectl get nodes
                 '''
             }
         }
 
-        stage('Prometheus Monitoring') {
+        stage('Prometheus Validation') {
             steps {
                 sh '''
                 kubectl get pods -n monitoring
+                '''
+            }
+        }
+
+        stage('Grafana Validation') {
+            steps {
+                sh '''
                 kubectl get svc -n monitoring
                 '''
             }
         }
 
-        stage('FinOps Visibility') {
+        stage('Falco Monitoring') {
             steps {
                 sh '''
-                kubectl get nodes
-
-                kubectl get pods -A
-
-                kubectl top nodes || true
-
-                kubectl top pods -A || true
+                kubectl get daemonset -n falco
                 '''
             }
         }
@@ -41,11 +52,11 @@ pipeline {
 
     post {
         success {
-            echo "Monitoring Pipeline Success"
+            echo 'Monitoring Pipeline Success'
         }
 
         failure {
-            echo "Monitoring Pipeline Failed"
+            echo 'Monitoring Pipeline Failed'
         }
     }
 }

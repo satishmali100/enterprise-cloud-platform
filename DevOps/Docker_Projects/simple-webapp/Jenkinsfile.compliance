@@ -1,28 +1,80 @@
+// Jenkinsfile.compliance
+
 pipeline {
     agent any
 
     stages {
 
-        stage('Kyverno Compliance') {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Fix Kubernetes Config') {
             steps {
                 sh '''
-                kubectl get pods -n kyverno
+                mkdir -p ~/.kube
 
-                kubectl get clusterpolicy || true
+                sed -i 's#https://127.0.0.1:54269#https://host.docker.internal:54269#g' ~/.kube/config
 
-                kubectl get policyreport -A || true
+                grep server ~/.kube/config
+
+                kubectl get nodes
                 '''
             }
         }
 
-        stage('Gatekeeper Compliance') {
+        stage('Checkov Scan') {
+            steps {
+                dir('DevOps/Docker_Projects/simple-webapp') {
+                    sh '''
+                    checkov -d .
+                    '''
+                }
+            }
+        }
+
+        stage('Semgrep Scan') {
+            steps {
+                dir('DevOps/Docker_Projects/simple-webapp') {
+                    sh '''
+                    semgrep --config auto .
+                    '''
+                }
+            }
+        }
+
+        stage('Gitleaks Scan') {
+            steps {
+                dir('DevOps/Docker_Projects/simple-webapp') {
+                    sh '''
+                    gitleaks detect --source . --no-git
+                    '''
+                }
+            }
+        }
+
+        stage('Kyverno Validation') {
+            steps {
+                sh '''
+                kubectl get pods -n kyverno
+                '''
+            }
+        }
+
+        stage('Gatekeeper Validation') {
             steps {
                 sh '''
                 kubectl get pods -n gatekeeper-system
+                '''
+            }
+        }
 
-                kubectl get constrainttemplates || true
-
-                kubectl get constraints || true
+        stage('Falco Validation') {
+            steps {
+                sh '''
+                kubectl get pods -n falco
                 '''
             }
         }
@@ -30,11 +82,11 @@ pipeline {
 
     post {
         success {
-            echo "Compliance Audit Success"
+            echo 'Compliance Pipeline Success'
         }
 
         failure {
-            echo "Compliance Audit Failed"
+            echo 'Compliance Pipeline Failed'
         }
     }
 }
