@@ -1,0 +1,82 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Fix Kubernetes Config') {
+            steps {
+                sh '''
+                mkdir -p ~/.kube
+
+                sed -i 's#https://127.0.0.1:54269#https://host.docker.internal:54269#g' ~/.kube/config
+
+                kubectl config set-cluster kind-cicd-lab \
+                  --server=https://host.docker.internal:54269 \
+                  --insecure-skip-tls-verify=true
+
+                kubectl get nodes
+                '''
+            }
+        }
+
+        stage('Apply Kyverno Policies') {
+            steps {
+                sh '''
+                if [ -d "platform/kyverno-policies" ] && [ "$(ls -A platform/kyverno-policies 2>/dev/null)" ]; then
+                    kubectl apply -f platform/kyverno-policies/ --validate=false || true
+                else
+                    echo "No Kyverno policies found"
+                fi
+                '''
+            }
+        }
+
+        stage('Apply Gatekeeper Policies') {
+            steps {
+                sh '''
+                if [ -d "platform/gatekeeper-policies" ] && [ "$(ls -A platform/gatekeeper-policies 2>/dev/null)" ]; then
+                    kubectl apply -f platform/gatekeeper-policies/ --validate=false || true
+                else
+                    echo "No Gatekeeper policies found"
+                fi
+                '''
+            }
+        }
+
+        stage('Platform Validation') {
+            steps {
+                sh '''
+                kubectl get nodes
+                kubectl get pods -A
+                kubectl top nodes || true
+                helm repo list || true
+                helm list -A || true
+                '''
+            }
+        }
+
+        stage('Security Tools Validation') {
+            steps {
+                sh '''
+                kubectl get pods -n kyverno || true
+                kubectl get pods -n gatekeeper-system || true
+                kubectl get pods -n falco || true
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Platform Pipeline Success'
+        }
+        failure {
+            echo 'Platform Pipeline Failed'
+        }
+    }
+}

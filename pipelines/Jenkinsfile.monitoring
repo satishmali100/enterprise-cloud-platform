@@ -1,0 +1,74 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Fix Kubernetes Config') {
+            steps {
+                sh '''
+                mkdir -p ~/.kube
+
+                sed -i 's#https://127.0.0.1:54269#https://host.docker.internal:54269#g' ~/.kube/config
+
+                kubectl config set-cluster kind-cicd-lab \
+                  --server=https://host.docker.internal:54269 \
+                  --insecure-skip-tls-verify=true
+
+                kubectl get nodes
+                '''
+            }
+        }
+
+        stage('Prometheus Validation') {
+            steps {
+                sh '''
+                kubectl get pods -n monitoring || true
+                '''
+            }
+        }
+
+        stage('Grafana Validation') {
+            steps {
+                sh '''
+                kubectl get svc -n monitoring || true
+                kubectl get pods -n monitoring | grep grafana || true
+                '''
+            }
+        }
+
+        stage('Falco Monitoring Validation') {
+            steps {
+                sh '''
+                kubectl get daemonset -n falco || true
+                kubectl get pods -n falco || true
+                '''
+            }
+        }
+
+        stage('Monitoring Folder Check') {
+            steps {
+                sh '''
+                echo "Monitoring config folders:"
+                ls -la monitoring || true
+                ls -la monitoring/alerts || true
+                ls -la monitoring/grafana-dashboards || true
+                ls -la monitoring/prometheus || true
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Monitoring Pipeline Success'
+        }
+        failure {
+            echo 'Monitoring Pipeline Failed'
+        }
+    }
+}

@@ -1,0 +1,111 @@
+pipeline {
+    agent any
+
+    environment {
+        APP_DIR = "DevOps/Docker_Projects/simple-webapp"
+        REPORT_DIR = "compliance/reports"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Fix Kubernetes Config') {
+            steps {
+                sh '''
+                mkdir -p ~/.kube
+
+                sed -i 's#https://127.0.0.1:54269#https://host.docker.internal:54269#g' ~/.kube/config
+
+                kubectl config set-cluster kind-cicd-lab \
+                  --server=https://host.docker.internal:54269 \
+                  --insecure-skip-tls-verify=true
+
+                kubectl get nodes
+                '''
+            }
+        }
+
+        stage('Prepare Reports') {
+            steps {
+                sh '''
+                mkdir -p $REPORT_DIR
+                '''
+            }
+        }
+
+        stage('Checkov Scan') {
+            steps {
+                sh '''
+                checkov -d $APP_DIR \
+                  -o cli \
+                  -o json \
+                  --output-file-path console,$REPORT_DIR/checkov-report.json || true
+                '''
+            }
+        }
+
+        stage('Semgrep Scan') {
+            steps {
+                sh '''
+                if [ -d "compliance/semgrep-rules" ] && [ "$(ls -A compliance/semgrep-rules 2>/dev/null)" ]; then
+                    semgrep --config compliance/semgrep-rules $APP_DIR \
+                      --json -o $REPORT_DIR/semgrep-report.json || true
+                else
+                    semgrep --config auto $APP_DIR \
+                      --json -o $REPORT_DIR/semgrep-report.json || true
+                fi
+                '''
+            }
+        }
+
+        stage('Gitleaks Scan') {
+            steps {
+                sh '''
+                if [ -f "compliance/gitleaks/.gitleaks.toml" ]; then
+                    gitleaks detect \
+                      --source $APP_DIR \
+                      --config compliance/gitleaks/.gitleaks.toml \
+                      --report-format json \
+                      --report-path $REPORT_DIR/gitleaks-report.json \
+                      --no-git || true
+                else
+                    gitleaks detect \
+                      --source $APP_DIR \
+                      --report-format json \
+                      --report-path $REPORT_DIR/gitleaks-report.json \
+                      --no-git || true
+                fi
+                '''
+            }
+        }
+
+        stage('Cluster Security Validation') {
+            steps {
+                sh '''
+                kubectl get pods -n kyverno || true
+                kubectl get pods -n gatekeeper-system || true
+                kubectl get pods -n falco || true
+                '''
+            }
+        }
+
+        stage('Archive Reports') {
+            steps {
+                archiveArtifacts artifacts: 'compliance/reports/*', allowEmptyArchive: true
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'Compliance Pipeline Success'
+        }
+        failure {
+            echo 'Compliance Pipeline Failed'
+        }
+    }
+}
