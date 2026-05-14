@@ -48,9 +48,11 @@ pipeline {
 
                 sed -i 's#https://127.0.0.1:54269#https://host.docker.internal:54269#g' ~/.kube/config
 
-                echo "Current Kubernetes Server:"
-                grep server ~/.kube/config
+                kubectl config set-cluster kind-cicd-lab \
+                  --server=https://host.docker.internal:54269 \
+                  --insecure-skip-tls-verify=true
 
+                kubectl config view --minify
                 kubectl get nodes
                 '''
             }
