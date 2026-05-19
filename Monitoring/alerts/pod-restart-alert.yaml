@@ -1,0 +1,11 @@
+groups:
+  - name: kubernetes-alerts
+    rules:
+      - alert: PodRestartingFrequently
+        expr: increase(kube_pod_container_status_restarts_total[5m]) > 3
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod restarting frequently"
+          description: "A pod restarted more than 3 times in 5 minutes."

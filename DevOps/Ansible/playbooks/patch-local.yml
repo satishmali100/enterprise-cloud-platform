@@ -1,0 +1,12 @@
+- name: Patch local WSL Ubuntu
+  hosts: local
+  become: yes
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Upgrade installed packages
+      apt:
+        upgrade: yes
