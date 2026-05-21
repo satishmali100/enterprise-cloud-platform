@@ -1,0 +1,40 @@
+- name: Validate installed DevOps tools
+  hosts: local
+  gather_facts: false
+
+  tasks:
+    - name: Check Docker
+      command: docker --version
+      register: docker_version
+      ignore_errors: yes
+
+    - name: Show Docker version
+      debug:
+        var: docker_version.stdout
+
+    - name: Check kubectl
+      command: kubectl version --client
+      register: kubectl_version
+      ignore_errors: yes
+
+    - name: Show kubectl version
+      debug:
+        var: kubectl_version.stdout
+
+    - name: Check Helm
+      command: helm version
+      register: helm_version
+      ignore_errors: yes
+
+    - name: Show Helm version
+      debug:
+        var: helm_version.stdout
+
+    - name: Check Kubernetes nodes
+      command: kubectl get nodes
+      register: k8s_nodes
+      ignore_errors: yes
+
+    - name: Show Kubernetes nodes
+      debug:
+        var: k8s_nodes.stdout

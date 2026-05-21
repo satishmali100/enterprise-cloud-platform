@@ -1,0 +1,17 @@
+apiVersion: awx.ansible.com/v1beta1
+kind: AWX
+
+metadata:
+  name: awx-demo
+  namespace: awx
+
+spec:
+  service_type: nodeport
+  nodeport_port: 30090
+  no_log: false
+  projects_persistence: false
+  replicas: 1
+
+  web_resource_requirements: {}
+
+  task_resource_requirements: {}
