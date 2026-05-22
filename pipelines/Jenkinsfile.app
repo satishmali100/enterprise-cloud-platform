@@ -23,6 +23,16 @@ pipeline {
             }
         }
 
+        stage('Production Approval') {
+            steps {
+                input(
+                    message: 'Approve Security Scan and Production Deployment?',
+                    ok: 'Approve',
+                    submitter: 'approver'
+                )
+            }
+        }
+
         stage('Trivy Image Scan') {
             steps {
                 sh '''
