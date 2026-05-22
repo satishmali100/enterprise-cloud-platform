@@ -62,16 +62,6 @@ pipeline {
             }
         }
 
-        stage('Production Approval') {
-            steps {
-                input(
-                    message: 'Approve Production Deployment?',
-                    ok: 'Deploy',
-                    submitter: 'approver'
-                )
-            }
-        }
-
         stage('Deploy To Kubernetes') {
             steps {
                 dir("${APP_DIR}") {
